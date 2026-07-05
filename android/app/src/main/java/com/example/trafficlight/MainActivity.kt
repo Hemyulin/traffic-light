@@ -296,7 +296,7 @@ class MainActivity : Activity() {
     private fun saveMoodWithFeedback(color: MoodColor, overlayHost: FrameLayout) {
         moodStore.save(color)
         vibrateLightly()
-        showConfirmation(overlayHost) {
+        showConfirmation(overlayHost, color) {
             refreshDashboardPreservingScroll()
         }
     }
@@ -312,7 +312,7 @@ class MainActivity : Activity() {
     private fun saveMoodThenExit(color: MoodColor, overlayHost: FrameLayout) {
         moodStore.save(color)
         vibrateLightly()
-        showConfirmation(overlayHost) {
+        showConfirmation(overlayHost, color) {
             finishAndRemoveTask()
         }
     }
@@ -322,13 +322,8 @@ class MainActivity : Activity() {
         vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK))
     }
 
-    private fun showConfirmation(host: FrameLayout, afterShown: () -> Unit) {
-        val confirmation = TextView(this).apply {
-            text = "OK"
-            setTextColor(Color.WHITE)
-            textSize = 24f
-            gravity = Gravity.CENTER
-            setBackgroundColor(Color.argb(185, 0, 0, 0))
+    private fun showConfirmation(host: FrameLayout, color: MoodColor, afterShown: () -> Unit) {
+        val confirmation = ConfirmationView(this, color).apply {
             alpha = 0f
         }
         host.addView(confirmation, FrameLayout.LayoutParams(
@@ -374,6 +369,51 @@ class MainActivity : Activity() {
         private val RED = Color.rgb(239, 68, 68)
         private val SOFT_TEXT = Color.rgb(176, 185, 185)
         private val DARK_BUTTON = Color.rgb(32, 35, 35)
+    }
+}
+
+class ConfirmationView(
+    context: android.content.Context,
+    private val color: MoodColor,
+) : View(context) {
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        val width = width.toFloat()
+        val height = height.toFloat()
+        val centerX = width / 2f
+        val centerY = height / 2f
+        val radius = min(width, height) * 0.22f
+
+        paint.style = Paint.Style.FILL
+        paint.color = Color.argb(224, 0, 0, 0)
+        canvas.drawRect(0f, 0f, width, height, paint)
+
+        paint.color = color.toConfirmationColor()
+        canvas.drawCircle(centerX, centerY - radius * 0.35f, radius, paint)
+
+        paint.style = Paint.Style.STROKE
+        paint.strokeCap = Paint.Cap.ROUND
+        paint.strokeJoin = Paint.Join.ROUND
+        paint.strokeWidth = radius * 0.16f
+        paint.color = Color.WHITE
+        canvas.drawLine(centerX - radius * 0.42f, centerY - radius * 0.36f, centerX - radius * 0.12f, centerY - radius * 0.06f, paint)
+        canvas.drawLine(centerX - radius * 0.12f, centerY - radius * 0.06f, centerX + radius * 0.48f, centerY - radius * 0.62f, paint)
+
+        paint.style = Paint.Style.FILL
+        paint.textAlign = Paint.Align.CENTER
+        paint.textSize = radius * 0.48f
+        paint.color = Color.rgb(232, 239, 235)
+        canvas.drawText("Logged", centerX, centerY + radius * 1.12f, paint)
+    }
+
+    private fun MoodColor.toConfirmationColor(): Int {
+        return when (this) {
+            MoodColor.GREEN -> Color.rgb(34, 197, 94)
+            MoodColor.YELLOW -> Color.rgb(250, 204, 21)
+            MoodColor.RED -> Color.rgb(239, 68, 68)
+        }
     }
 }
 
