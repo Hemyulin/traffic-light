@@ -10,12 +10,15 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.os.Build
 import android.os.Bundle
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.widget.LinearLayout
+import android.widget.FrameLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import java.time.Instant
@@ -43,13 +46,14 @@ class MainActivity : Activity() {
     }
 
     private fun buildPromptView(): View {
-        return MoodWheelView(this) { color ->
-            saveMoodAndExit(color)
-        }.apply {
-            layoutParams = ViewGroup.LayoutParams(
+        return FrameLayout(this).apply {
+            setBackgroundColor(BLACK)
+            addView(MoodWheelView(context) { color ->
+                saveMoodThenExit(color, this)
+            }, FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT,
-            )
+            ))
         }
     }
 
@@ -120,14 +124,18 @@ class MainActivity : Activity() {
     }
 
     private fun buildFullScreenCheckIn(): View {
-        return MoodWheelView(this) { color ->
-            moodStore.save(color)
-            refreshDashboardPreservingScroll()
-        }.apply {
+        return FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 resources.displayMetrics.heightPixels,
             )
+            setBackgroundColor(BLACK)
+            addView(MoodWheelView(context) { color ->
+                saveMoodWithFeedback(color, this)
+            }, FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+            ))
         }
     }
 
@@ -285,6 +293,14 @@ class MainActivity : Activity() {
         setContentView(buildDashboardView())
     }
 
+    private fun saveMoodWithFeedback(color: MoodColor, overlayHost: FrameLayout) {
+        moodStore.save(color)
+        vibrateLightly()
+        showConfirmation(overlayHost) {
+            refreshDashboardPreservingScroll()
+        }
+    }
+
     private fun todayEntries(): List<MoodEntry> {
         val today = LocalDate.now()
         val zone = ZoneId.systemDefault()
@@ -293,9 +309,39 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun saveMoodAndExit(color: MoodColor) {
+    private fun saveMoodThenExit(color: MoodColor, overlayHost: FrameLayout) {
         moodStore.save(color)
-        finishAndRemoveTask()
+        vibrateLightly()
+        showConfirmation(overlayHost) {
+            finishAndRemoveTask()
+        }
+    }
+
+    private fun vibrateLightly() {
+        val vibrator = getSystemService(Vibrator::class.java)
+        vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK))
+    }
+
+    private fun showConfirmation(host: FrameLayout, afterShown: () -> Unit) {
+        val confirmation = TextView(this).apply {
+            text = "OK"
+            setTextColor(Color.WHITE)
+            textSize = 24f
+            gravity = Gravity.CENTER
+            setBackgroundColor(Color.argb(185, 0, 0, 0))
+            alpha = 0f
+        }
+        host.addView(confirmation, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+        ))
+        confirmation.animate()
+            .alpha(1f)
+            .setDuration(90)
+            .withEndAction {
+                confirmation.postDelayed(afterShown, 260)
+            }
+            .start()
     }
 
     private fun requestNotificationPermissionIfNeeded() {
