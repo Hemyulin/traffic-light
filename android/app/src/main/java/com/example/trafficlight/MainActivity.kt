@@ -69,9 +69,7 @@ class MainActivity : Activity() {
             addView(LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER_HORIZONTAL
-                setPadding(dp(14), dp(14), dp(14), dp(22))
-                addView(title("Now"))
-                addView(buildCompactCheckIn())
+                addView(buildFullScreenCheckIn())
                 addView(title("Today"))
                 addView(TodayGraphView(context, moodStore.all()), LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
@@ -83,25 +81,23 @@ class MainActivity : Activity() {
                 addView(todaySummary())
                 addView(title("Reminders"))
                 addView(reminderSummary())
-                addView(settingButton("Every hour, 9-21") {
+                addView(rangeControl(isStart = true))
+                addView(rangeControl(isStart = false))
+                addView(settingButton("Every 60 min") {
+                    val current = reminderStore.load()
                     saveSettings(
-                        ReminderSettings(
+                        current.copy(
                             mode = ReminderMode.INTERVAL,
                             intervalMinutes = 60,
-                            startHour = 9,
-                            endHour = 21,
-                            fixedHours = listOf(9, 13, 17, 21),
                         ),
                     )
                 })
-                addView(settingButton("Every 90 min, 9-21") {
+                addView(settingButton("Every 90 min") {
+                    val current = reminderStore.load()
                     saveSettings(
-                        ReminderSettings(
+                        current.copy(
                             mode = ReminderMode.INTERVAL,
                             intervalMinutes = 90,
-                            startHour = 9,
-                            endHour = 21,
-                            fixedHours = listOf(9, 13, 17, 21),
                         ),
                     )
                 })
@@ -110,8 +106,8 @@ class MainActivity : Activity() {
                         ReminderSettings(
                             mode = ReminderMode.FIXED_TIMES,
                             intervalMinutes = 60,
-                            startHour = 9,
-                            endHour = 21,
+                            startMinuteOfDay = 9 * 60,
+                            endMinuteOfDay = 21 * 60,
                             fixedHours = listOf(9, 13, 17, 21),
                         ),
                     )
@@ -124,16 +120,20 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun buildCompactCheckIn(): View {
+    private fun buildFullScreenCheckIn(): View {
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            addView(compactColorButton(MoodColor.GREEN, GREEN))
-            addView(compactColorButton(MoodColor.YELLOW, YELLOW))
-            addView(compactColorButton(MoodColor.RED, RED))
+            addView(manualColorZone(MoodColor.GREEN, GREEN))
+            addView(manualColorZone(MoodColor.YELLOW, YELLOW))
+            addView(manualColorZone(MoodColor.RED, RED))
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                resources.displayMetrics.heightPixels,
+            )
         }
     }
 
-    private fun compactColorButton(color: MoodColor, backgroundColor: Int): View {
+    private fun manualColorZone(color: MoodColor, backgroundColor: Int): View {
         return View(this).apply {
             setBackgroundColor(backgroundColor)
             isClickable = true
@@ -144,11 +144,9 @@ class MainActivity : Activity() {
             }
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(34),
-            ).apply {
-                topMargin = dp(3)
-                bottomMargin = dp(3)
-            }
+                0,
+                1f,
+            )
         }
     }
 
@@ -181,11 +179,65 @@ class MainActivity : Activity() {
     private fun reminderSummary(): TextView {
         val settings = reminderStore.load()
         val text = when (settings.mode) {
-            ReminderMode.INTERVAL -> "Every ${settings.intervalMinutes} min, ${settings.startHour}-${settings.endHour}"
+            ReminderMode.INTERVAL -> "Every ${settings.intervalMinutes} min, ${settings.startMinuteOfDay.formatTime()}-${settings.endMinuteOfDay.formatTime()}"
             ReminderMode.FIXED_TIMES -> "At ${settings.fixedHours.joinToString(" ")}"
             ReminderMode.OFF -> "Off"
         }
         return smallText(text)
+    }
+
+    private fun rangeControl(isStart: Boolean): View {
+        val settings = reminderStore.load()
+        val currentValue = if (isStart) settings.startMinuteOfDay else settings.endMinuteOfDay
+        val label = if (isStart) "From" else "Until"
+
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(dp(14), 0, dp(14), 0)
+            addView(adjustButton("-30") {
+                updateRange(isStart, currentValue - 30)
+            })
+            addView(TextView(context).apply {
+                text = "$label ${currentValue.formatTime()}"
+                textSize = 13f
+                gravity = Gravity.CENTER
+                setTextColor(Color.WHITE)
+                includeFontPadding = false
+            }, LinearLayout.LayoutParams(0, dp(34), 1f))
+            addView(adjustButton("+30") {
+                updateRange(isStart, currentValue + 30)
+            })
+        }.also { view ->
+            view.layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+            ).apply {
+                topMargin = dp(4)
+                bottomMargin = dp(4)
+            }
+        }
+    }
+
+    private fun adjustButton(text: String, onClick: () -> Unit): TextView {
+        return TextView(this).apply {
+            this.text = text
+            textSize = 12f
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            setBackgroundColor(DARK_BUTTON)
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                onClick()
+                setContentView(buildDashboardView())
+            }
+        }.also { view ->
+            view.layoutParams = LinearLayout.LayoutParams(dp(48), dp(34)).apply {
+                marginStart = dp(3)
+                marginEnd = dp(3)
+            }
+        }
     }
 
     private fun smallText(text: String): TextView {
@@ -223,10 +275,23 @@ class MainActivity : Activity() {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 dp(38),
             ).apply {
+                marginStart = dp(14)
+                marginEnd = dp(14)
                 topMargin = dp(4)
                 bottomMargin = dp(4)
             }
         }
+    }
+
+    private fun updateRange(isStart: Boolean, newValue: Int) {
+        val current = reminderStore.load()
+        val normalized = newValue.coerceIn(0, 23 * 60 + 30)
+        val next = if (isStart) {
+            current.copy(startMinuteOfDay = normalized.coerceAtMost(current.endMinuteOfDay - 30))
+        } else {
+            current.copy(endMinuteOfDay = normalized.coerceAtLeast(current.startMinuteOfDay + 30))
+        }
+        saveSettings(next.copy(mode = ReminderMode.INTERVAL))
     }
 
     private fun saveSettings(settings: ReminderSettings) {
@@ -257,6 +322,16 @@ class MainActivity : Activity() {
 
     private fun dp(value: Int): Int {
         return (value * resources.displayMetrics.density).toInt()
+    }
+
+    private fun Int.formatTime(): String {
+        val hour = this / 60
+        val minute = this % 60
+        return if (minute == 0) {
+            hour.toString()
+        } else {
+            "%d:%02d".format(hour, minute)
+        }
     }
 
     companion object {
