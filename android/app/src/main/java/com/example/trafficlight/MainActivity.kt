@@ -11,6 +11,7 @@ import android.graphics.RectF
 import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
@@ -19,10 +20,14 @@ import android.widget.TextView
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import kotlin.math.atan2
+import kotlin.math.min
 
 class MainActivity : Activity() {
     private lateinit var moodStore: MoodEntryStore
     private lateinit var reminderStore: ReminderSettingsStore
+    private var dashboardScrollView: ScrollView? = null
+    private var dashboardScrollY = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,35 +42,22 @@ class MainActivity : Activity() {
     }
 
     private fun buildPromptView(): View {
-        return LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.BLACK)
-            addView(colorZone(MoodColor.GREEN, GREEN))
-            addView(colorZone(MoodColor.YELLOW, YELLOW))
-            addView(colorZone(MoodColor.RED, RED))
-        }
-    }
-
-    private fun colorZone(color: MoodColor, backgroundColor: Int): View {
-        return View(this).apply {
-            setBackgroundColor(backgroundColor)
-            isClickable = true
-            isFocusable = true
-            setOnClickListener {
-                saveMoodAndExit(color)
-            }
-            layoutParams = LinearLayout.LayoutParams(
+        return MoodWheelView(this) { color ->
+            saveMoodAndExit(color)
+        }.apply {
+            layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                0,
-                1f,
+                ViewGroup.LayoutParams.MATCH_PARENT,
             )
         }
     }
 
     private fun buildDashboardView(): View {
         return ScrollView(this).apply {
+            dashboardScrollView = this
             setBackgroundColor(BLACK)
             isFillViewport = true
+            post { scrollTo(0, dashboardScrollY) }
             addView(LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER_HORIZONTAL
@@ -121,31 +113,13 @@ class MainActivity : Activity() {
     }
 
     private fun buildFullScreenCheckIn(): View {
-        return LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            addView(manualColorZone(MoodColor.GREEN, GREEN))
-            addView(manualColorZone(MoodColor.YELLOW, YELLOW))
-            addView(manualColorZone(MoodColor.RED, RED))
+        return MoodWheelView(this) { color ->
+            moodStore.save(color)
+            refreshDashboardPreservingScroll()
+        }.apply {
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 resources.displayMetrics.heightPixels,
-            )
-        }
-    }
-
-    private fun manualColorZone(color: MoodColor, backgroundColor: Int): View {
-        return View(this).apply {
-            setBackgroundColor(backgroundColor)
-            isClickable = true
-            isFocusable = true
-            setOnClickListener {
-                moodStore.save(color)
-                setContentView(buildDashboardView())
-            }
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                0,
-                1f,
             )
         }
     }
@@ -230,7 +204,7 @@ class MainActivity : Activity() {
             isFocusable = true
             setOnClickListener {
                 onClick()
-                setContentView(buildDashboardView())
+                refreshDashboardPreservingScroll()
             }
         }.also { view ->
             view.layoutParams = LinearLayout.LayoutParams(dp(48), dp(34)).apply {
@@ -268,7 +242,7 @@ class MainActivity : Activity() {
             isFocusable = true
             setOnClickListener {
                 onClick()
-                setContentView(buildDashboardView())
+                refreshDashboardPreservingScroll()
             }
         }.also { view ->
             view.layoutParams = LinearLayout.LayoutParams(
@@ -297,6 +271,11 @@ class MainActivity : Activity() {
     private fun saveSettings(settings: ReminderSettings) {
         reminderStore.save(settings)
         CheckInAlarmScheduler.schedule(this)
+    }
+
+    private fun refreshDashboardPreservingScroll() {
+        dashboardScrollY = dashboardScrollView?.scrollY ?: dashboardScrollY
+        setContentView(buildDashboardView())
     }
 
     private fun todayEntries(): List<MoodEntry> {
@@ -342,6 +321,61 @@ class MainActivity : Activity() {
         private val RED = Color.rgb(239, 68, 68)
         private val SOFT_TEXT = Color.rgb(176, 185, 185)
         private val DARK_BUTTON = Color.rgb(32, 35, 35)
+    }
+}
+
+class MoodWheelView(
+    context: android.content.Context,
+    private val onMoodSelected: (MoodColor) -> Unit,
+) : View(context) {
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val bounds = RectF()
+
+    init {
+        setBackgroundColor(Color.BLACK)
+        isClickable = true
+        isFocusable = true
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        val diameter = min(width, height).toFloat()
+        val left = (width - diameter) / 2f
+        val top = (height - diameter) / 2f
+        bounds.set(left, top, left + diameter, top + diameter)
+
+        paint.style = Paint.Style.FILL
+        paint.color = Color.rgb(34, 197, 94)
+        canvas.drawArc(bounds, -90f, 120f, true, paint)
+        paint.color = Color.rgb(250, 204, 21)
+        canvas.drawArc(bounds, 30f, 120f, true, paint)
+        paint.color = Color.rgb(239, 68, 68)
+        canvas.drawArc(bounds, 150f, 120f, true, paint)
+
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = 3f
+        paint.color = Color.BLACK
+        canvas.drawCircle(bounds.centerX(), bounds.centerY(), diameter / 2f, paint)
+    }
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (event.action != MotionEvent.ACTION_UP) return true
+
+        val centerX = width / 2f
+        val centerY = height / 2f
+        val radius = min(width, height) / 2f
+        val dx = event.x - centerX
+        val dy = event.y - centerY
+        if (dx * dx + dy * dy > radius * radius) return true
+
+        val angle = ((Math.toDegrees(atan2(dy.toDouble(), dx.toDouble())) + 360.0) % 360.0)
+        val color = when {
+            angle >= 270.0 || angle < 30.0 -> MoodColor.GREEN
+            angle < 150.0 -> MoodColor.YELLOW
+            else -> MoodColor.RED
+        }
+        onMoodSelected(color)
+        return true
     }
 }
 
