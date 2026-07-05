@@ -4,12 +4,12 @@ plugins {
 }
 
 android {
-    namespace = "com.example.trafficlight"
+    namespace = "com.example.trafficlight.mobile"
     compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.trafficlight"
-        minSdk = 30
+        minSdk = 26
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"

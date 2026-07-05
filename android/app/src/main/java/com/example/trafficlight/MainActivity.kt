@@ -294,7 +294,8 @@ class MainActivity : Activity() {
     }
 
     private fun saveMoodWithFeedback(color: MoodColor, overlayHost: FrameLayout) {
-        moodStore.save(color)
+        val entry = moodStore.save(color)
+        MoodSyncPublisher.publish(this, entry)
         vibrateLightly()
         showConfirmation(overlayHost, color) {
             refreshDashboardPreservingScroll()
@@ -310,7 +311,8 @@ class MainActivity : Activity() {
     }
 
     private fun saveMoodThenExit(color: MoodColor, overlayHost: FrameLayout) {
-        moodStore.save(color)
+        val entry = moodStore.save(color)
+        MoodSyncPublisher.publish(this, entry)
         vibrateLightly()
         showConfirmation(overlayHost, color) {
             finishAndRemoveTask()
