@@ -14,6 +14,7 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -57,7 +58,13 @@ class MainActivity : Activity() {
             dashboardScrollView = this
             setBackgroundColor(BLACK)
             isFillViewport = true
-            post { scrollTo(0, dashboardScrollY) }
+            viewTreeObserver.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {
+                override fun onPreDraw(): Boolean {
+                    viewTreeObserver.removeOnPreDrawListener(this)
+                    scrollTo(0, dashboardScrollY)
+                    return true
+                }
+            })
             addView(LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER_HORIZONTAL
