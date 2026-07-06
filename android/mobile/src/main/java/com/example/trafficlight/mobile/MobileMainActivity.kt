@@ -6,6 +6,8 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -20,6 +22,7 @@ import java.time.ZoneId
 
 class MobileMainActivity : Activity() {
     private lateinit var store: MobileMoodEntryStore
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,6 +66,22 @@ class MobileMainActivity : Activity() {
     }
 
     private fun syncExistingEntries() {
+        requestWatchBackfill()
+        mainHandler.postDelayed(::pullDataLayerEntries, 900)
+        pullDataLayerEntries()
+    }
+
+    private fun requestWatchBackfill() {
+        Wearable.getNodeClient(this).connectedNodes
+            .addOnSuccessListener { nodes ->
+                nodes.forEach { node ->
+                    Wearable.getMessageClient(this)
+                        .sendMessage(node.id, PATH_SYNC_REQUEST, ByteArray(0))
+                }
+            }
+    }
+
+    private fun pullDataLayerEntries() {
         Wearable.getDataClient(this).dataItems
             .addOnSuccessListener { items ->
                 val localStore = MobileMoodEntryStore(this)
@@ -181,6 +200,7 @@ class MobileMainActivity : Activity() {
 
     companion object {
         private const val PATH_PREFIX = "/mood_entries"
+        private const val PATH_SYNC_REQUEST = "/sync_request"
         private const val KEY_TIMESTAMP = "timestamp"
         private const val KEY_COLOR = "color"
         private const val BLACK = Color.BLACK
