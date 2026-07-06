@@ -1,6 +1,8 @@
 package com.example.trafficlight.mobile
 
 import android.app.Activity
+import android.content.Context
+import android.content.res.Configuration
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -19,12 +21,18 @@ import com.google.android.gms.wearable.Wearable
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.util.Locale
 
 class MobileMainActivity : Activity() {
     private lateinit var store: MobileMoodEntryStore
     private val mainHandler = Handler(Looper.getMainLooper())
 
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(newBase.withGermanLocale())
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        Locale.setDefault(Locale.GERMAN)
         super.onCreate(savedInstanceState)
         store = MobileMoodEntryStore(this)
         setContentView(buildView())
@@ -44,8 +52,8 @@ class MobileMainActivity : Activity() {
             addView(LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(dp(20), dp(22), dp(20), dp(28))
-                addView(header("Traffic Light"))
-                addView(subtitle("${entries.size} synced check-ins"))
+                addView(header(getString(R.string.app_name)))
+                addView(subtitle(resources.getQuantityString(R.plurals.synced_check_ins, entries.size, entries.size)))
                 addView(MoodDistributionView(context, entries), LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     dp(220),
@@ -54,18 +62,18 @@ class MobileMainActivity : Activity() {
                     bottomMargin = dp(14)
                 })
                 addView(distributionStats(entries))
-                addView(sectionTitle("Today"))
+                addView(sectionTitle(getString(R.string.today)))
                 addView(MoodDayGraphView(context, entries), LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
-                    dp(140),
+                    dp(168),
                 ))
                 addView(summaryText(todaySummary(entries)))
-                addView(sectionTitle("Last 7 Days"))
+                addView(sectionTitle(getString(R.string.last_7_days)))
                 addView(WeekSummaryView(context, entries), LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     dp(180),
                 ))
-                addView(sectionTitle("Recent"))
+                addView(sectionTitle(getString(R.string.recent)))
                 recentEntries(entries).forEach { entry ->
                     addView(entryRow(entry))
                 }
@@ -111,16 +119,16 @@ class MobileMainActivity : Activity() {
         val green = today.count { it.color == MoodColor.GREEN }
         val yellow = today.count { it.color == MoodColor.YELLOW }
         val red = today.count { it.color == MoodColor.RED }
-        return "Green $green   Yellow $yellow   Red $red"
+        return getString(R.string.today_summary, green, yellow, red)
     }
 
     private fun distributionStats(entries: List<MoodEntry>): View {
         return LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            addView(statPill("Green", entries.count { it.color == MoodColor.GREEN }, MoodColor.GREEN))
-            addView(statPill("Yellow", entries.count { it.color == MoodColor.YELLOW }, MoodColor.YELLOW))
-            addView(statPill("Red", entries.count { it.color == MoodColor.RED }, MoodColor.RED))
+            addView(statPill(getString(R.string.green), entries.count { it.color == MoodColor.GREEN }, MoodColor.GREEN))
+            addView(statPill(getString(R.string.yellow), entries.count { it.color == MoodColor.YELLOW }, MoodColor.YELLOW))
+            addView(statPill(getString(R.string.red), entries.count { it.color == MoodColor.RED }, MoodColor.RED))
         }
     }
 
@@ -233,7 +241,15 @@ class MobileMainActivity : Activity() {
     private fun MoodEntry.label(): String {
         val dateTime = Instant.ofEpochMilli(timestampMillis).atZone(ZoneId.systemDefault())
         val minute = dateTime.minute.toString().padStart(2, '0')
-        return "${color.storedValue.replaceFirstChar { it.uppercase() }} at ${dateTime.hour}:$minute"
+        return getString(R.string.entry_label, color.localizedName(), dateTime.hour, minute)
+    }
+
+    private fun MoodColor.localizedName(): String {
+        return when (this) {
+            MoodColor.GREEN -> getString(R.string.green)
+            MoodColor.YELLOW -> getString(R.string.yellow)
+            MoodColor.RED -> getString(R.string.red)
+        }
     }
 
     private fun List<MoodEntry>.filterToday(): List<MoodEntry> {
@@ -257,6 +273,13 @@ class MobileMainActivity : Activity() {
         private const val BLACK = Color.BLACK
         private val SOFT_TEXT = Color.rgb(176, 185, 185)
     }
+}
+
+private fun Context.withGermanLocale(): Context {
+    Locale.setDefault(Locale.GERMAN)
+    val configuration = Configuration(resources.configuration)
+    configuration.setLocale(Locale.GERMAN)
+    return createConfigurationContext(configuration)
 }
 
 class MoodDistributionView(
@@ -304,7 +327,7 @@ class MoodDistributionView(
 
         paint.color = Color.rgb(176, 185, 185)
         paint.textSize = diameter * 0.07f
-        canvas.drawText("check-ins", bounds.centerX(), bounds.centerY() + diameter * 0.12f, paint)
+        canvas.drawText(context.getString(R.string.check_ins), bounds.centerX(), bounds.centerY() + diameter * 0.12f, paint)
     }
 
     private fun Int?.orZero(): Int = this ?: 0
@@ -321,10 +344,12 @@ class MoodDayGraphView(
         super.onDraw(canvas)
         val width = width.toFloat()
         val height = height.toFloat()
+        val labelHeight = 26f
+        val graphBottom = height - labelHeight
         val barWidth = width / 24f
 
         paint.color = Color.rgb(24, 27, 27)
-        canvas.drawRoundRect(RectF(0f, 0f, width, height), 14f, 14f, paint)
+        canvas.drawRoundRect(RectF(0f, 0f, width, graphBottom), 14f, 14f, paint)
 
         val grouped = todayEntries.groupBy { entry ->
             Instant.ofEpochMilli(entry.timestampMillis).atZone(ZoneId.systemDefault()).hour
@@ -333,13 +358,23 @@ class MoodDayGraphView(
         for (hour in 0..23) {
             val hourEntries = grouped[hour].orEmpty()
             paint.color = hourEntries.lastOrNull()?.color?.toUiColor() ?: Color.rgb(54, 58, 58)
-            val filledHeight = if (hourEntries.isEmpty()) height * 0.12f else height * 0.78f
+            val filledHeight = if (hourEntries.isEmpty()) graphBottom * 0.12f else graphBottom * 0.78f
             canvas.drawRoundRect(
-                RectF(hour * barWidth + 2f, height - filledHeight, (hour + 1) * barWidth - 2f, height - 10f),
+                RectF(hour * barWidth + 2f, graphBottom - filledHeight, (hour + 1) * barWidth - 2f, graphBottom - 10f),
                 5f,
                 5f,
                 paint,
             )
+        }
+
+        paint.style = Paint.Style.FILL
+        paint.textAlign = Paint.Align.CENTER
+        paint.textSize = 18f
+        paint.color = Color.rgb(176, 185, 185)
+        listOf(3, 6, 9, 12, 15, 18, 21, 0).forEach { hour ->
+            val xHour = if (hour == 0) 24 else hour
+            val x = (xHour.toFloat() / 24f) * width
+            canvas.drawText(hour.toString().padStart(2, '0'), x.coerceIn(12f, width - 12f), height - 4f, paint)
         }
     }
 
