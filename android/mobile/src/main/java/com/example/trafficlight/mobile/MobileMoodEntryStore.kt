@@ -1,16 +1,17 @@
-package com.example.trafficlight
+package com.example.trafficlight.mobile
 
 import android.content.Context
 
-class MoodEntryStore(context: Context) {
+class MobileMoodEntryStore(context: Context) {
     private val preferences = context.getSharedPreferences("mood_entries", Context.MODE_PRIVATE)
 
-    fun save(color: MoodColor, timestampMillis: Long = System.currentTimeMillis()): MoodEntry {
-        val existing = preferences.getString(KEY_ENTRIES, "").orEmpty()
-        val entry = "$timestampMillis|${color.storedValue}"
-        val nextValue = if (existing.isBlank()) entry else "$existing\n$entry"
-        preferences.edit().putString(KEY_ENTRIES, nextValue).apply()
-        return MoodEntry(timestampMillis, color)
+    fun save(entry: MoodEntry) {
+        val entries = all().associateBy { it.timestampMillis }.toMutableMap()
+        entries[entry.timestampMillis] = entry
+        val serialized = entries.values
+            .sortedBy { it.timestampMillis }
+            .joinToString("\n") { "${it.timestampMillis}|${it.color.storedValue}" }
+        preferences.edit().putString(KEY_ENTRIES, serialized).apply()
     }
 
     fun all(): List<MoodEntry> {
@@ -38,3 +39,9 @@ data class MoodEntry(
     val timestampMillis: Long,
     val color: MoodColor,
 )
+
+enum class MoodColor(val storedValue: String) {
+    GREEN("green"),
+    YELLOW("yellow"),
+    RED("red"),
+}

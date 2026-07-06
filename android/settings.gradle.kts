@@ -21,3 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "TrafficLight"
 include(":app")
+include(":mobile")

@@ -13,8 +13,14 @@ class ReminderSettingsStore(context: Context) {
         return ReminderSettings(
             mode = mode,
             intervalMinutes = preferences.getInt(KEY_INTERVAL_MINUTES, 60),
-            startHour = preferences.getInt(KEY_START_HOUR, 9),
-            endHour = preferences.getInt(KEY_END_HOUR, 21),
+            startMinuteOfDay = preferences.getInt(
+                KEY_START_MINUTE_OF_DAY,
+                preferences.getInt(KEY_START_HOUR, 9) * 60,
+            ),
+            endMinuteOfDay = preferences.getInt(
+                KEY_END_MINUTE_OF_DAY,
+                preferences.getInt(KEY_END_HOUR, 21) * 60,
+            ),
             fixedHours = preferences.getString(KEY_FIXED_HOURS, null)
                 ?.split(',')
                 ?.mapNotNull { it.toIntOrNull() }
@@ -28,8 +34,8 @@ class ReminderSettingsStore(context: Context) {
         preferences.edit()
             .putString(KEY_MODE, settings.mode.name)
             .putInt(KEY_INTERVAL_MINUTES, settings.intervalMinutes)
-            .putInt(KEY_START_HOUR, settings.startHour)
-            .putInt(KEY_END_HOUR, settings.endHour)
+            .putInt(KEY_START_MINUTE_OF_DAY, settings.startMinuteOfDay)
+            .putInt(KEY_END_MINUTE_OF_DAY, settings.endMinuteOfDay)
             .putString(KEY_FIXED_HOURS, settings.fixedHours.joinToString(","))
             .apply()
     }
@@ -39,6 +45,8 @@ class ReminderSettingsStore(context: Context) {
         private const val KEY_INTERVAL_MINUTES = "interval_minutes"
         private const val KEY_START_HOUR = "start_hour"
         private const val KEY_END_HOUR = "end_hour"
+        private const val KEY_START_MINUTE_OF_DAY = "start_minute_of_day"
+        private const val KEY_END_MINUTE_OF_DAY = "end_minute_of_day"
         private const val KEY_FIXED_HOURS = "fixed_hours"
     }
 }
@@ -46,8 +54,8 @@ class ReminderSettingsStore(context: Context) {
 data class ReminderSettings(
     val mode: ReminderMode,
     val intervalMinutes: Int,
-    val startHour: Int,
-    val endHour: Int,
+    val startMinuteOfDay: Int,
+    val endMinuteOfDay: Int,
     val fixedHours: List<Int>,
 )
 

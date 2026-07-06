@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.ZoneId
 
 object CheckInAlarmScheduler {
@@ -38,11 +39,13 @@ object CheckInAlarmScheduler {
     }
 
     private fun nextIntervalTime(now: LocalDateTime, settings: ReminderSettings): LocalDateTime {
-        val todayStart = now.toLocalDate().atTime(settings.startHour, 0)
-        val todayEnd = now.toLocalDate().atTime(settings.endHour, 0)
+        val startTime = settings.startMinuteOfDay.toLocalTime()
+        val endTime = settings.endMinuteOfDay.toLocalTime()
+        val todayStart = now.toLocalDate().atTime(startTime)
+        val todayEnd = now.toLocalDate().atTime(endTime)
 
         if (now.isBefore(todayStart)) return todayStart
-        if (!now.isBefore(todayEnd)) return now.toLocalDate().plusDays(1).atTime(settings.startHour, 0)
+        if (!now.isBefore(todayEnd)) return now.toLocalDate().plusDays(1).atTime(startTime)
 
         var candidate = todayStart
         while (!candidate.isAfter(now)) {
@@ -52,7 +55,7 @@ object CheckInAlarmScheduler {
         return if (candidate.isBefore(todayEnd) || candidate == todayEnd) {
             candidate
         } else {
-            now.toLocalDate().plusDays(1).atTime(settings.startHour, 0)
+            now.toLocalDate().plusDays(1).atTime(startTime)
         }
     }
 
@@ -74,5 +77,10 @@ object CheckInAlarmScheduler {
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+    }
+
+    private fun Int.toLocalTime(): LocalTime {
+        val normalized = coerceIn(0, 23 * 60 + 59)
+        return LocalTime.of(normalized / 60, normalized % 60)
     }
 }

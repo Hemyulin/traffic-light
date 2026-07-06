@@ -10,20 +10,29 @@ and red at the same time, saves one tap with a timestamp, then closes.
 - Native Android/Wear OS app in `android/`
 - Kotlin Activity with no external UI framework dependency yet
 - Local timestamped mood storage on the watch
+- Wear OS Data Layer sync from watch to Android phone
+- Android phone companion app for synced stats
 - Inexact reminder notification every few hours
 - Boot receiver to restore reminders after restart
 
 ## Build
 
-Open `android/` in Android Studio, choose a Wear OS emulator or connected watch,
-then run the `app` configuration.
+Open `android/` in Android Studio.
+
+- Run `app` on the Wear OS watch.
+- Run `mobile` on the Android phone.
 
 From the command line:
 
 ```sh
 cd android
-./gradlew :app:assembleDebug
+./gradlew :app:assembleDebug :mobile:assembleDebug
 ```
+
+Debug APKs:
+
+- Watch: `android/app/build/outputs/apk/debug/app-debug.apk`
+- Phone: `android/mobile/build/outputs/apk/debug/mobile-debug.apk`
 
 ## Product notes
 
