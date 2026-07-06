@@ -21,6 +21,7 @@ import com.google.android.gms.wearable.Wearable
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 class MobileMainActivity : Activity() {
@@ -396,11 +397,15 @@ class WeekSummaryView(
     private val entriesByDay = entries.groupBy { entry ->
         Instant.ofEpochMilli(entry.timestampMillis).atZone(ZoneId.systemDefault()).toLocalDate()
     }
+    private val dayFormatter = DateTimeFormatter.ofPattern("EE", Locale.GERMAN)
+    private val dateFormatter = DateTimeFormatter.ofPattern("d.M.", Locale.GERMAN)
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val width = width.toFloat()
         val height = height.toFloat()
+        val labelHeight = 42f
+        val graphBottom = height - labelHeight
         val gap = 10f
         val columnWidth = (width - gap * 6f) / 7f
         val today = LocalDate.now()
@@ -410,11 +415,11 @@ class WeekSummaryView(
             val entries = entriesByDay[day].orEmpty()
             val counts = MoodColor.entries.associateWith { color -> entries.count { it.color == color } }
             val total = counts.values.sum().coerceAtLeast(1)
-            var bottom = height
+            var bottom = graphBottom
             val left = index * (columnWidth + gap)
 
             for (color in listOf(MoodColor.RED, MoodColor.YELLOW, MoodColor.GREEN)) {
-                val segmentHeight = height * (counts[color].orZero().toFloat() / total.toFloat())
+                val segmentHeight = graphBottom * (counts[color].orZero().toFloat() / total.toFloat())
                 paint.color = if (entries.isEmpty()) Color.rgb(54, 58, 58) else color.toUiColor()
                 canvas.drawRoundRect(
                     RectF(left, bottom - segmentHeight, left + columnWidth, bottom),
@@ -425,6 +430,16 @@ class WeekSummaryView(
                 bottom -= segmentHeight
                 if (entries.isEmpty()) break
             }
+
+            val centerX = left + columnWidth / 2f
+            paint.style = Paint.Style.FILL
+            paint.textAlign = Paint.Align.CENTER
+            paint.color = Color.rgb(232, 239, 235)
+            paint.textSize = 16f
+            canvas.drawText(day.format(dayFormatter), centerX, graphBottom + 17f, paint)
+            paint.color = Color.rgb(176, 185, 185)
+            paint.textSize = 14f
+            canvas.drawText(day.format(dateFormatter), centerX, graphBottom + 36f, paint)
         }
     }
 
