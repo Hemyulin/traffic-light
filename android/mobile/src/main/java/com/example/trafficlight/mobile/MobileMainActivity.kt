@@ -31,6 +31,7 @@ class MobileMainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         setContentView(buildView())
+        syncExistingEntries()
     }
 
     private fun buildView(): View {

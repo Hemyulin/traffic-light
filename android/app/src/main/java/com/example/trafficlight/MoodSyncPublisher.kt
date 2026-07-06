@@ -9,6 +9,12 @@ object MoodSyncPublisher {
     private const val KEY_TIMESTAMP = "timestamp"
     private const val KEY_COLOR = "color"
 
+    fun publishAll(context: Context, entries: List<MoodEntry>) {
+        entries.forEach { entry ->
+            publish(context, entry)
+        }
+    }
+
     fun publish(context: Context, entry: MoodEntry) {
         val request = PutDataMapRequest.create("$PATH_PREFIX/${entry.timestampMillis}").apply {
             dataMap.putLong(KEY_TIMESTAMP, entry.timestampMillis)

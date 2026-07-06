@@ -37,6 +37,7 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         moodStore = MoodEntryStore(this)
         reminderStore = ReminderSettingsStore(this)
+        MoodSyncPublisher.publishAll(this, moodStore.all())
         CheckInAlarmScheduler.schedule(this)
         requestNotificationPermissionIfNeeded()
         getSystemService(NotificationManager::class.java).cancel(100)
