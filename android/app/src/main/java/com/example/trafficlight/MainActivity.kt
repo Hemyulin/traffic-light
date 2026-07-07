@@ -43,14 +43,15 @@ class MainActivity : Activity() {
         getSystemService(NotificationManager::class.java).cancel(100)
 
         val isPrompt = intent?.getBooleanExtra(EXTRA_PROMPT_MODE, false) == true
-        setContentView(if (isPrompt) buildPromptView() else buildDashboardView())
+        val isConflict = intent?.getBooleanExtra(EXTRA_CONFLICT_MODE, false) == true
+        setContentView(if (isPrompt) buildPromptView(isConflict) else buildDashboardView())
     }
 
-    private fun buildPromptView(): View {
+    private fun buildPromptView(isConflict: Boolean): View {
         return FrameLayout(this).apply {
             setBackgroundColor(BLACK)
             addView(MoodWheelView(context) { color ->
-                saveMoodThenExit(color, this)
+                saveMoodThenExit(color, this, isConflict)
             }, FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -73,7 +74,12 @@ class MainActivity : Activity() {
             addView(LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER_HORIZONTAL
-                addView(buildFullScreenCheckIn())
+                addView(buildFullScreenCheckIn(isConflict = false))
+                addView(title("Conflict"))
+                addView(settingButton("Log conflict") {
+                    dashboardScrollY = 0
+                    setContentView(buildConflictCheckIn())
+                })
                 addView(title("Today"))
                 addView(TodayGraphView(context, moodStore.all()), LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
@@ -87,6 +93,7 @@ class MainActivity : Activity() {
                 addView(reminderSummary())
                 addView(rangeControl(isStart = true))
                 addView(rangeControl(isStart = false))
+                addView(intervalControl())
                 addView(settingButton("Every 60 min") {
                     val current = reminderStore.load()
                     saveSettings(
@@ -120,11 +127,42 @@ class MainActivity : Activity() {
                     val current = reminderStore.load()
                     saveSettings(current.copy(mode = ReminderMode.OFF))
                 })
+                addView(settingButton("Pause today") {
+                    val tomorrowStart = LocalDate.now()
+                        .plusDays(1)
+                        .atStartOfDay(ZoneId.systemDefault())
+                        .toInstant()
+                        .toEpochMilli()
+                    val current = reminderStore.load()
+                    saveSettings(current.copy(pausedUntilMillis = tomorrowStart))
+                })
             })
         }
     }
 
-    private fun buildFullScreenCheckIn(): View {
+    private fun buildConflictCheckIn(): View {
+        return FrameLayout(this).apply {
+            setBackgroundColor(BLACK)
+            addView(TextView(context).apply {
+                text = "Conflict"
+                setTextColor(Color.WHITE)
+                textSize = 18f
+                gravity = Gravity.CENTER
+            }, FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(46),
+                Gravity.TOP,
+            ))
+            addView(MoodWheelView(context) { color ->
+                saveMoodWithFeedback(color, this, isConflict = true)
+            }, FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+            ))
+        }
+    }
+
+    private fun buildFullScreenCheckIn(isConflict: Boolean): View {
         return FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -132,7 +170,7 @@ class MainActivity : Activity() {
             )
             setBackgroundColor(BLACK)
             addView(MoodWheelView(context) { color ->
-                saveMoodWithFeedback(color, this)
+                saveMoodWithFeedback(color, this, isConflict)
             }, FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -197,6 +235,44 @@ class MainActivity : Activity() {
             }, LinearLayout.LayoutParams(0, dp(34), 1f))
             addView(adjustButton("+30") {
                 updateRange(isStart, currentValue + 30)
+            })
+        }.also { view ->
+            view.layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+            ).apply {
+                topMargin = dp(4)
+                bottomMargin = dp(4)
+            }
+        }
+    }
+
+    private fun intervalControl(): View {
+        val settings = reminderStore.load()
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(dp(14), 0, dp(14), 0)
+            addView(adjustButton("-15") {
+                val current = reminderStore.load()
+                saveSettings(current.copy(
+                    mode = ReminderMode.INTERVAL,
+                    intervalMinutes = (current.intervalMinutes - 15).coerceAtLeast(15),
+                ))
+            })
+            addView(TextView(context).apply {
+                text = "Every ${settings.intervalMinutes} min"
+                textSize = 13f
+                gravity = Gravity.CENTER
+                setTextColor(Color.WHITE)
+                includeFontPadding = false
+            }, LinearLayout.LayoutParams(0, dp(34), 1f))
+            addView(adjustButton("+15") {
+                val current = reminderStore.load()
+                saveSettings(current.copy(
+                    mode = ReminderMode.INTERVAL,
+                    intervalMinutes = (current.intervalMinutes + 15).coerceAtMost(360),
+                ))
             })
         }.also { view ->
             view.layoutParams = LinearLayout.LayoutParams(
@@ -294,8 +370,8 @@ class MainActivity : Activity() {
         setContentView(buildDashboardView())
     }
 
-    private fun saveMoodWithFeedback(color: MoodColor, overlayHost: FrameLayout) {
-        val entry = moodStore.save(color)
+    private fun saveMoodWithFeedback(color: MoodColor, overlayHost: FrameLayout, isConflict: Boolean = false) {
+        val entry = moodStore.save(color, isConflict = isConflict)
         MoodSyncPublisher.publish(this, entry)
         vibrateLightly()
         showConfirmation(overlayHost, color) {
@@ -311,8 +387,8 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun saveMoodThenExit(color: MoodColor, overlayHost: FrameLayout) {
-        val entry = moodStore.save(color)
+    private fun saveMoodThenExit(color: MoodColor, overlayHost: FrameLayout, isConflict: Boolean = false) {
+        val entry = moodStore.save(color, isConflict = isConflict)
         MoodSyncPublisher.publish(this, entry)
         vibrateLightly()
         showConfirmation(overlayHost, color) {
@@ -366,6 +442,7 @@ class MainActivity : Activity() {
 
     companion object {
         const val EXTRA_PROMPT_MODE = "com.example.trafficlight.PROMPT_MODE"
+        const val EXTRA_CONFLICT_MODE = "com.example.trafficlight.CONFLICT_MODE"
         private const val BLACK = Color.BLACK
         private val GREEN = Color.rgb(34, 197, 94)
         private val YELLOW = Color.rgb(250, 204, 21)

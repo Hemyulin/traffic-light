@@ -35,6 +35,10 @@
             android:exported="false" />
 
         <receiver
+            android:name=".MoodActionReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name=".BootReceiver"
             android:exported="false">
             <intent-filter>

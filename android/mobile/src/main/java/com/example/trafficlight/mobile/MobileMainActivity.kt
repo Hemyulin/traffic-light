@@ -1,7 +1,9 @@
 package com.example.trafficlight.mobile
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Canvas
 import android.graphics.Color
@@ -16,6 +18,7 @@ import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.EditText
 import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.Wearable
 import java.time.Instant
@@ -27,6 +30,7 @@ import java.util.Locale
 class MobileMainActivity : Activity() {
     private lateinit var store: MobileMoodEntryStore
     private val mainHandler = Handler(Looper.getMainLooper())
+    private var syncStatus = "Sync bereit"
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(newBase.withGermanLocale())
@@ -55,6 +59,7 @@ class MobileMainActivity : Activity() {
                 setPadding(dp(20), dp(22), dp(20), dp(28))
                 addView(header(getString(R.string.app_name)))
                 addView(subtitle(resources.getQuantityString(R.plurals.synced_check_ins, entries.size, entries.size)))
+                addView(syncStatusView())
                 addView(MoodDistributionView(context, entries), LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     dp(220),
@@ -69,12 +74,15 @@ class MobileMainActivity : Activity() {
                     dp(188),
                 ))
                 addView(summaryText(todaySummary(entries)))
+                addView(sectionTitle("Einblicke"))
+                addView(summaryText(insights(entries)))
                 addView(sectionTitle(getString(R.string.last_7_days)))
                 addView(WeekSummaryView(context, entries), LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     dp(250),
                 ))
                 addView(sectionTitle(getString(R.string.recent)))
+                addView(dataActions())
                 recentEntries(entries).forEach { entry ->
                     addView(entryRow(entry))
                 }
@@ -83,6 +91,8 @@ class MobileMainActivity : Activity() {
     }
 
     private fun syncExistingEntries() {
+        syncStatus = "Sync läuft..."
+        setContentView(buildView())
         requestWatchBackfill()
         mainHandler.postDelayed(::pullDataLayerEntries, 900)
         pullDataLayerEntries()
@@ -102,16 +112,29 @@ class MobileMainActivity : Activity() {
         Wearable.getDataClient(this).dataItems
             .addOnSuccessListener { items ->
                 val localStore = MobileMoodEntryStore(this)
+                var imported = 0
                 for (item in items) {
                     if (!item.uri.path.orEmpty().startsWith(PATH_PREFIX)) continue
                     val dataMap = DataMapItem.fromDataItem(item).dataMap
                     val timestamp = dataMap.getLong(KEY_TIMESTAMP)
                     val colorValue = dataMap.getString(KEY_COLOR).orEmpty()
                     val color = MoodColor.entries.firstOrNull { it.storedValue == colorValue } ?: continue
-                    localStore.save(MoodEntry(timestamp, color))
+                    localStore.save(MoodEntry(
+                        timestampMillis = timestamp,
+                        color = color,
+                        isConflict = dataMap.getBoolean(KEY_CONFLICT),
+                        note = dataMap.getString(KEY_NOTE).orEmpty(),
+                        tags = dataMap.getStringArrayList(KEY_TAGS).orEmpty(),
+                    ))
+                    imported++
                 }
+                syncStatus = "Zuletzt synchronisiert: ${java.time.LocalTime.now().hour}:${java.time.LocalTime.now().minute.toString().padStart(2, '0')} ($imported gesehen)"
                 setContentView(buildView())
                 items.release()
+            }
+            .addOnFailureListener {
+                syncStatus = "Sync fehlgeschlagen"
+                setContentView(buildView())
             }
     }
 
@@ -121,6 +144,52 @@ class MobileMainActivity : Activity() {
         val yellow = today.count { it.color == MoodColor.YELLOW }
         val red = today.count { it.color == MoodColor.RED }
         return getString(R.string.today_summary, green, yellow, red)
+    }
+
+    private fun insights(entries: List<MoodEntry>): String {
+        if (entries.isEmpty()) return "Noch keine Daten."
+        val byHour = entries.groupBy {
+            Instant.ofEpochMilli(it.timestampMillis).atZone(ZoneId.systemDefault()).hour
+        }
+        val greenHour = byHour.maxByOrNull { (_, hourEntries) -> hourEntries.count { it.color == MoodColor.GREEN } }?.key
+        val redHour = byHour.maxByOrNull { (_, hourEntries) -> hourEntries.count { it.color == MoodColor.RED } }?.key
+        val conflicts = entries.count { it.isConflict }
+        return "Grünster Zeitraum: ${greenHour ?: "-"} Uhr   Rotester Zeitraum: ${redHour ?: "-"} Uhr   Konflikte: $conflicts"
+    }
+
+    private fun syncStatusView(): View {
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(TextView(context).apply {
+                text = syncStatus
+                setTextColor(SOFT_TEXT)
+                textSize = 13f
+            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            addView(actionButton("Sync") {
+                syncExistingEntries()
+            })
+        }.also { view ->
+            view.layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+            ).apply {
+                topMargin = dp(10)
+            }
+        }
+    }
+
+    private fun dataActions(): View {
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            addView(actionButton("CSV teilen") {
+                shareCsv()
+            })
+            addView(actionButton("Alles löschen") {
+                confirmClear()
+            })
+        }
     }
 
     private fun distributionStats(entries: List<MoodEntry>): View {
@@ -223,20 +292,121 @@ class MobileMainActivity : Activity() {
 
     private fun entryRow(entry: MoodEntry): View {
         return LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, dp(9), 0, dp(9))
-            addView(View(context).apply {
-                setBackgroundColor(entry.color.toUiColor())
-            }, LinearLayout.LayoutParams(dp(14), dp(14)).apply {
-                marginEnd = dp(12)
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(11), 0, dp(11))
+            addView(LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                addView(View(context).apply {
+                    setBackgroundColor(entry.color.toUiColor())
+                }, LinearLayout.LayoutParams(dp(14), dp(14)).apply {
+                    marginEnd = dp(12)
+                })
+                addView(TextView(context).apply {
+                    text = entry.label()
+                    setTextColor(Color.WHITE)
+                    textSize = 15f
+                })
             })
-            addView(TextView(context).apply {
-                text = entry.label()
-                setTextColor(Color.WHITE)
-                textSize = 15f
+            val details = listOfNotNull(
+                "Konflikt".takeIf { entry.isConflict },
+                entry.note.takeIf { it.isNotBlank() },
+                entry.tags.joinToString(", ").takeIf { entry.tags.isNotEmpty() },
+            ).joinToString(" · ")
+            if (details.isNotBlank()) {
+                addView(TextView(context).apply {
+                    text = details
+                    setTextColor(SOFT_TEXT)
+                    textSize = 13f
+                    setPadding(dp(26), dp(4), 0, 0)
+                })
+            }
+            addView(LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER
+                setPadding(0, dp(6), 0, 0)
+                addView(actionButton("Notiz") { showNoteDialog(entry) })
+                addView(actionButton("Tag") { showTagDialog(entry) })
+                addView(actionButton("Konflikt") { toggleConflict(entry) })
+                addView(actionButton("Löschen") { deleteEntry(entry) })
             })
         }
+    }
+
+    private fun actionButton(text: String, onClick: () -> Unit): TextView {
+        return TextView(this).apply {
+            this.text = text
+            textSize = 12f
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            setBackgroundColor(Color.rgb(32, 35, 35))
+            setPadding(dp(8), dp(8), dp(8), dp(8))
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { onClick() }
+        }.also { view ->
+            view.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginStart = dp(3)
+                marginEnd = dp(3)
+            }
+        }
+    }
+
+    private fun showNoteDialog(entry: MoodEntry) {
+        val input = EditText(this).apply {
+            setText(entry.note)
+            setTextColor(Color.BLACK)
+            hint = "Notiz"
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Notiz")
+            .setView(input)
+            .setPositiveButton("Speichern") { _, _ ->
+                store.update(entry.copy(note = input.text.toString()))
+                setContentView(buildView())
+            }
+            .setNegativeButton("Abbrechen", null)
+            .show()
+    }
+
+    private fun showTagDialog(entry: MoodEntry) {
+        val tags = arrayOf("Arbeit", "Familie", "Beziehung", "Müde", "Hunger", "Konflikt")
+        AlertDialog.Builder(this)
+            .setTitle("Tag hinzufügen")
+            .setItems(tags) { _, which ->
+                store.update(entry.copy(tags = (entry.tags + tags[which]).distinct()))
+                setContentView(buildView())
+            }
+            .show()
+    }
+
+    private fun toggleConflict(entry: MoodEntry) {
+        store.update(entry.copy(isConflict = !entry.isConflict))
+        setContentView(buildView())
+    }
+
+    private fun deleteEntry(entry: MoodEntry) {
+        store.delete(entry.timestampMillis)
+        setContentView(buildView())
+    }
+
+    private fun confirmClear() {
+        AlertDialog.Builder(this)
+            .setTitle("Alle Einträge löschen?")
+            .setPositiveButton("Löschen") { _, _ ->
+                store.clear()
+                setContentView(buildView())
+            }
+            .setNegativeButton("Abbrechen", null)
+            .show()
+    }
+
+    private fun shareCsv() {
+        val intent = Intent(Intent.ACTION_SEND)
+            .setType("text/csv")
+            .putExtra(Intent.EXTRA_SUBJECT, "Traffic Light CSV")
+            .putExtra(Intent.EXTRA_TEXT, store.csv())
+        startActivity(Intent.createChooser(intent, "CSV teilen"))
     }
 
     private fun MoodEntry.label(): String {
@@ -271,6 +441,9 @@ class MobileMainActivity : Activity() {
         private const val PATH_SYNC_REQUEST = "/sync_request"
         private const val KEY_TIMESTAMP = "timestamp"
         private const val KEY_COLOR = "color"
+        private const val KEY_CONFLICT = "conflict"
+        private const val KEY_NOTE = "note"
+        private const val KEY_TAGS = "tags"
         private const val BLACK = Color.BLACK
         private val SOFT_TEXT = Color.rgb(176, 185, 185)
     }
