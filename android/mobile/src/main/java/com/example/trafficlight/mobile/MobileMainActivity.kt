@@ -56,10 +56,9 @@ class MobileMainActivity : Activity() {
             setBackgroundColor(BLACK)
             addView(LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
-                setPadding(dp(20), dp(22), dp(20), dp(28))
+                setPadding(dp(20), dp(44), dp(20), dp(28))
                 addView(header(getString(R.string.app_name)))
                 addView(subtitle(resources.getQuantityString(R.plurals.synced_check_ins, entries.size, entries.size)))
-                addView(syncStatusView())
                 addView(MoodDistributionView(context, entries), LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     dp(220),
@@ -82,10 +81,12 @@ class MobileMainActivity : Activity() {
                     dp(250),
                 ))
                 addView(sectionTitle(getString(R.string.recent)))
-                addView(dataActions())
                 recentEntries(entries).forEach { entry ->
                     addView(entryRow(entry))
                 }
+                addView(sectionTitle("Daten"))
+                addView(syncStatusView())
+                addView(dataActions())
             })
         }
     }
@@ -151,10 +152,18 @@ class MobileMainActivity : Activity() {
         val byHour = entries.groupBy {
             Instant.ofEpochMilli(it.timestampMillis).atZone(ZoneId.systemDefault()).hour
         }
-        val greenHour = byHour.maxByOrNull { (_, hourEntries) -> hourEntries.count { it.color == MoodColor.GREEN } }?.key
-        val redHour = byHour.maxByOrNull { (_, hourEntries) -> hourEntries.count { it.color == MoodColor.RED } }?.key
+        val greenHour = byHour
+            .filterValues { it.size >= 2 }
+            .maxByOrNull { (_, hourEntries) ->
+                hourEntries.count { it.color == MoodColor.GREEN }.toFloat() / hourEntries.size.toFloat()
+            }?.key
+        val redHour = byHour
+            .filterValues { it.size >= 2 }
+            .maxByOrNull { (_, hourEntries) ->
+                hourEntries.count { it.color == MoodColor.RED }.toFloat() / hourEntries.size.toFloat()
+            }?.key
         val conflicts = entries.count { it.isConflict }
-        return "Grünster Zeitraum: ${greenHour ?: "-"} Uhr   Rotester Zeitraum: ${redHour ?: "-"} Uhr   Konflikte: $conflicts"
+        return "Grünster Zeitraum: ${greenHour?.formatHour() ?: "-"}   Rotester Zeitraum: ${redHour?.formatHour() ?: "-"}   Konflikte: $conflicts"
     }
 
     private fun syncStatusView(): View {
@@ -164,7 +173,7 @@ class MobileMainActivity : Activity() {
             addView(TextView(context).apply {
                 text = syncStatus
                 setTextColor(SOFT_TEXT)
-                textSize = 13f
+                textSize = 12f
             }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             addView(actionButton("Sync") {
                 syncExistingEntries()
@@ -183,10 +192,10 @@ class MobileMainActivity : Activity() {
         return LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            addView(actionButton("CSV teilen") {
+            addView(actionButton("CSV") {
                 shareCsv()
             })
-            addView(actionButton("Alles löschen") {
+            addView(actionButton("Löschen") {
                 confirmClear()
             })
         }
@@ -236,7 +245,7 @@ class MobileMainActivity : Activity() {
     }
 
     private fun recentEntries(entries: List<MoodEntry>): List<MoodEntry> {
-        return entries.sortedByDescending { it.timestampMillis }.take(12)
+        return entries.sortedByDescending { it.timestampMillis }.take(7)
     }
 
     private fun header(text: String): TextView {
@@ -321,16 +330,25 @@ class MobileMainActivity : Activity() {
                     setPadding(dp(26), dp(4), 0, 0)
                 })
             }
-            addView(LinearLayout(context).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER
-                setPadding(0, dp(6), 0, 0)
-                addView(actionButton("Notiz") { showNoteDialog(entry) })
-                addView(actionButton("Tag") { showTagDialog(entry) })
-                addView(actionButton("Konflikt") { toggleConflict(entry) })
-                addView(actionButton("Löschen") { deleteEntry(entry) })
-            })
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { showEntryActions(entry) }
         }
+    }
+
+    private fun showEntryActions(entry: MoodEntry) {
+        val actions = arrayOf("Notiz", "Tag", "Konflikt umschalten", "Löschen")
+        AlertDialog.Builder(this)
+            .setTitle(entry.label())
+            .setItems(actions) { _, which ->
+                when (which) {
+                    0 -> showNoteDialog(entry)
+                    1 -> showTagDialog(entry)
+                    2 -> toggleConflict(entry)
+                    3 -> deleteEntry(entry)
+                }
+            }
+            .show()
     }
 
     private fun actionButton(text: String, onClick: () -> Unit): TextView {
@@ -435,6 +453,8 @@ class MobileMainActivity : Activity() {
     private fun dp(value: Int): Int {
         return (value * resources.displayMetrics.density).toInt()
     }
+
+    private fun Int.formatHour(): String = "${toString().padStart(2, '0')}:00"
 
     companion object {
         private const val PATH_PREFIX = "/mood_entries"
