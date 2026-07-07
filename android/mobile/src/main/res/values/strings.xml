@@ -1,3 +1,16 @@
 <resources>
     <string name="app_name">Traffic Light</string>
+    <string name="check_ins">check-ins</string>
+    <string name="today">Today</string>
+    <string name="last_7_days">Last 7 Days</string>
+    <string name="recent">Recent</string>
+    <string name="green">Green</string>
+    <string name="yellow">Yellow</string>
+    <string name="red">Red</string>
+    <string name="today_summary">Green %1$d   Yellow %2$d   Red %3$d</string>
+    <string name="entry_label">%1$s at %2$d:%3$s</string>
+    <plurals name="synced_check_ins">
+        <item quantity="one">%d synced check-in</item>
+        <item quantity="other">%d synced check-ins</item>
+    </plurals>
 </resources>
