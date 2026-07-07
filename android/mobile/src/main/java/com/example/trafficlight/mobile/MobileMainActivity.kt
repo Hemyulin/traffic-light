@@ -444,17 +444,20 @@ class MoodDistributionView(
         val width = width.toFloat()
         val height = height.toFloat()
         val diameter = minOf(width, height) * 0.82f
+        val strokeWidth = diameter * 0.2f
         val left = (width - diameter) / 2f
         val top = (height - diameter) / 2f
         bounds.set(left, top, left + diameter, top + diameter)
 
         paint.style = Paint.Style.STROKE
-        paint.strokeCap = Paint.Cap.BUTT
-        paint.strokeWidth = diameter * 0.18f
+        paint.strokeCap = Paint.Cap.ROUND
+        paint.strokeWidth = strokeWidth
         paint.color = Color.rgb(39, 44, 44)
-        canvas.drawCircle(bounds.centerX(), bounds.centerY(), diameter / 2f - paint.strokeWidth / 2f, paint)
+        val ringRadius = diameter / 2f - strokeWidth / 2f
+        canvas.drawCircle(bounds.centerX(), bounds.centerY(), ringRadius, paint)
 
         val total = counts.values.sum()
+        val labels = mutableListOf<SegmentLabel>()
         if (total > 0) {
             var startAngle = -90f
             for (color in listOf(MoodColor.GREEN, MoodColor.YELLOW, MoodColor.RED)) {
@@ -463,9 +466,13 @@ class MoodDistributionView(
                 if (sweep <= 0f) continue
                 paint.color = color.toUiColor()
                 canvas.drawArc(bounds, startAngle, sweep, false, paint)
-                drawSegmentCount(canvas, bounds, startAngle, sweep, count, color)
+                labels += SegmentLabel(startAngle, sweep, count, color)
                 startAngle += sweep
             }
+        }
+
+        labels.forEach { label ->
+            drawSegmentCount(canvas, bounds, label.startAngle, label.sweep, label.count, label.color)
         }
 
         paint.style = Paint.Style.FILL
@@ -492,16 +499,37 @@ class MoodDistributionView(
         if (count <= 0 || sweep < 22f) return
 
         val angle = Math.toRadians((startAngle + sweep / 2f).toDouble())
-        val radius = bounds.width() * 0.41f
+        val radius = bounds.width() * 0.39f
         val x = bounds.centerX() + kotlin.math.cos(angle).toFloat() * radius
         val y = bounds.centerY() + kotlin.math.sin(angle).toFloat() * radius
 
+        val text = count.toString()
         paint.style = Paint.Style.FILL
         paint.textAlign = Paint.Align.CENTER
-        paint.textSize = bounds.width() * 0.11f
+        paint.textSize = bounds.width() * 0.085f
+        val textWidth = paint.measureText(text)
+        val chipHeight = bounds.width() * 0.14f
+        val chipWidth = textWidth + bounds.width() * 0.095f
+        paint.color = Color.argb(220, 5, 5, 5)
+        canvas.drawRoundRect(
+            RectF(x - chipWidth / 2f, y - chipHeight / 2f, x + chipWidth / 2f, y + chipHeight / 2f),
+            chipHeight / 2f,
+            chipHeight / 2f,
+            paint,
+        )
         paint.color = if (color == MoodColor.YELLOW) Color.rgb(30, 28, 15) else Color.WHITE
-        canvas.drawText(count.toString(), x, y + bounds.width() * 0.04f, paint)
+        if (color == MoodColor.YELLOW) {
+            paint.color = Color.rgb(250, 204, 21)
+        }
+        canvas.drawText(text, x, y + bounds.width() * 0.03f, paint)
     }
+
+    private data class SegmentLabel(
+        val startAngle: Float,
+        val sweep: Float,
+        val count: Int,
+        val color: MoodColor,
+    )
 }
 
 class MoodDayGraphView(
