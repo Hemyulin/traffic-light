@@ -9,6 +9,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
+import android.graphics.Typeface
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -59,7 +60,7 @@ class MobileMainActivity : Activity() {
                 setPadding(dp(20), dp(44), dp(20), dp(28))
                 addView(MoodDistributionView(context, entries), LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
-                    dp(220),
+                    dp(270),
                 ).apply {
                     bottomMargin = dp(14)
                 })
@@ -444,8 +445,8 @@ class MoodDistributionView(
         super.onDraw(canvas)
         val width = width.toFloat()
         val height = height.toFloat()
-        val diameter = minOf(width, height) * 0.82f
-        val strokeWidth = diameter * 0.2f
+        val diameter = minOf(width, height) * 0.93f
+        val strokeWidth = diameter * 0.26f
         val left = (width - diameter) / 2f
         val top = (height - diameter) / 2f
         bounds.set(left, top, left + diameter, top + diameter)
@@ -483,10 +484,12 @@ class MoodDistributionView(
 
         paint.style = Paint.Style.FILL
         paint.textAlign = Paint.Align.CENTER
+        paint.typeface = Typeface.DEFAULT_BOLD
         paint.color = Color.WHITE
         paint.textSize = diameter * 0.18f
         canvas.drawText(total.toString(), bounds.centerX(), bounds.centerY() - diameter * 0.02f, paint)
 
+        paint.typeface = Typeface.DEFAULT
         paint.color = Color.rgb(176, 185, 185)
         paint.textSize = diameter * 0.07f
         canvas.drawText(context.getString(R.string.check_ins), bounds.centerX(), bounds.centerY() + diameter * 0.12f, paint)
@@ -511,9 +514,11 @@ class MoodDistributionView(
 
         paint.style = Paint.Style.FILL
         paint.textAlign = Paint.Align.CENTER
-        paint.textSize = bounds.width() * 0.105f
+        paint.typeface = Typeface.DEFAULT_BOLD
+        paint.textSize = bounds.width() * 0.13f
         paint.color = if (color == MoodColor.YELLOW) Color.rgb(30, 28, 15) else Color.WHITE
-        canvas.drawText(count.toString(), x, y + bounds.width() * 0.035f, paint)
+        canvas.drawText(count.toString(), x, y + bounds.width() * 0.045f, paint)
+        paint.typeface = Typeface.DEFAULT
     }
 
     private data class SegmentLabel(
