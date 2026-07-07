@@ -72,7 +72,7 @@ class MobileMainActivity : Activity() {
                 addView(sectionTitle(getString(R.string.last_7_days)))
                 addView(WeekSummaryView(context, entries), LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
-                    dp(180),
+                    dp(210),
                 ))
                 addView(sectionTitle(getString(R.string.recent)))
                 recentEntries(entries).forEach { entry ->
@@ -404,7 +404,7 @@ class WeekSummaryView(
         super.onDraw(canvas)
         val width = width.toFloat()
         val height = height.toFloat()
-        val labelHeight = 54f
+        val labelHeight = 74f
         val graphBottom = height - labelHeight
         val gap = 10f
         val columnWidth = (width - gap * 6f) / 7f
@@ -435,11 +435,11 @@ class WeekSummaryView(
             paint.style = Paint.Style.FILL
             paint.textAlign = Paint.Align.CENTER
             paint.color = Color.rgb(232, 239, 235)
-            paint.textSize = 24f
-            canvas.drawText(day.format(dayFormatter), centerX, graphBottom + 24f, paint)
+            paint.textSize = 34f
+            canvas.drawText(day.format(dayFormatter), centerX, graphBottom + 35f, paint)
             paint.color = Color.rgb(176, 185, 185)
-            paint.textSize = 17f
-            canvas.drawText(day.format(dateFormatter), centerX, graphBottom + 47f, paint)
+            paint.textSize = 24f
+            canvas.drawText(day.format(dateFormatter), centerX, graphBottom + 66f, paint)
         }
     }
 
