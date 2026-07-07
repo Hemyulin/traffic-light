@@ -446,7 +446,7 @@ class MoodDistributionView(
         val width = width.toFloat()
         val height = height.toFloat()
         val diameter = minOf(width, height) * 0.93f
-        val strokeWidth = diameter * 0.26f
+        val strokeWidth = diameter * 0.2f
         val left = (width - diameter) / 2f
         val top = (height - diameter) / 2f
         bounds.set(left, top, left + diameter, top + diameter)
@@ -484,12 +484,11 @@ class MoodDistributionView(
 
         paint.style = Paint.Style.FILL
         paint.textAlign = Paint.Align.CENTER
-        paint.typeface = Typeface.DEFAULT_BOLD
+        paint.typeface = Typeface.DEFAULT
         paint.color = Color.WHITE
         paint.textSize = diameter * 0.18f
         canvas.drawText(total.toString(), bounds.centerX(), bounds.centerY() - diameter * 0.02f, paint)
 
-        paint.typeface = Typeface.DEFAULT
         paint.color = Color.rgb(176, 185, 185)
         paint.textSize = diameter * 0.07f
         canvas.drawText(context.getString(R.string.check_ins), bounds.centerX(), bounds.centerY() + diameter * 0.12f, paint)
