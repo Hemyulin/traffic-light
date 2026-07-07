@@ -66,13 +66,13 @@ class MobileMainActivity : Activity() {
                 addView(sectionTitle(getString(R.string.today)))
                 addView(MoodDayGraphView(context, entries), LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
-                    dp(168),
+                    dp(188),
                 ))
                 addView(summaryText(todaySummary(entries)))
                 addView(sectionTitle(getString(R.string.last_7_days)))
                 addView(WeekSummaryView(context, entries), LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
-                    dp(210),
+                    dp(250),
                 ))
                 addView(sectionTitle(getString(R.string.recent)))
                 recentEntries(entries).forEach { entry ->
@@ -345,7 +345,7 @@ class MoodDayGraphView(
         super.onDraw(canvas)
         val width = width.toFloat()
         val height = height.toFloat()
-        val labelHeight = 26f
+        val labelHeight = 38f
         val graphBottom = height - labelHeight
         val barWidth = width / 24f
 
@@ -370,12 +370,12 @@ class MoodDayGraphView(
 
         paint.style = Paint.Style.FILL
         paint.textAlign = Paint.Align.CENTER
-        paint.textSize = 18f
+        paint.textSize = 28f
         paint.color = Color.rgb(176, 185, 185)
         listOf(3, 6, 9, 12, 15, 18, 21, 0).forEach { hour ->
             val xHour = if (hour == 0) 24 else hour
             val x = (xHour.toFloat() / 24f) * width
-            canvas.drawText(hour.toString().padStart(2, '0'), x.coerceIn(12f, width - 12f), height - 4f, paint)
+            canvas.drawText(hour.toString().padStart(2, '0'), x.coerceIn(18f, width - 18f), height - 6f, paint)
         }
     }
 
@@ -404,7 +404,7 @@ class WeekSummaryView(
         super.onDraw(canvas)
         val width = width.toFloat()
         val height = height.toFloat()
-        val labelHeight = 74f
+        val labelHeight = 96f
         val graphBottom = height - labelHeight
         val gap = 10f
         val columnWidth = (width - gap * 6f) / 7f
@@ -418,28 +418,48 @@ class WeekSummaryView(
             var bottom = graphBottom
             val left = index * (columnWidth + gap)
 
-            for (color in listOf(MoodColor.RED, MoodColor.YELLOW, MoodColor.GREEN)) {
-                val segmentHeight = graphBottom * (counts[color].orZero().toFloat() / total.toFloat())
-                paint.color = if (entries.isEmpty()) Color.rgb(54, 58, 58) else color.toUiColor()
+            if (entries.isEmpty()) {
+                paint.style = Paint.Style.FILL
+                paint.color = Color.rgb(54, 58, 58)
                 canvas.drawRoundRect(
-                    RectF(left, bottom - segmentHeight, left + columnWidth, bottom),
+                    RectF(left, 0f, left + columnWidth, graphBottom),
                     8f,
                     8f,
                     paint,
                 )
+            }
+
+            for (color in listOf(MoodColor.RED, MoodColor.YELLOW, MoodColor.GREEN)) {
+                val count = counts[color].orZero()
+                val segmentHeight = graphBottom * (count.toFloat() / total.toFloat())
+                if (count == 0) continue
+                paint.color = if (entries.isEmpty()) Color.rgb(54, 58, 58) else color.toUiColor()
+                val top = bottom - segmentHeight
+                canvas.drawRoundRect(
+                    RectF(left, top, left + columnWidth, bottom),
+                    8f,
+                    8f,
+                    paint,
+                )
+                if (count > 0 && segmentHeight >= 34f) {
+                    paint.style = Paint.Style.FILL
+                    paint.textAlign = Paint.Align.CENTER
+                    paint.textSize = 24f
+                    paint.color = if (color == MoodColor.YELLOW) Color.rgb(30, 28, 15) else Color.WHITE
+                    canvas.drawText(count.toString(), left + columnWidth / 2f, top + segmentHeight / 2f + 8f, paint)
+                }
                 bottom -= segmentHeight
-                if (entries.isEmpty()) break
             }
 
             val centerX = left + columnWidth / 2f
             paint.style = Paint.Style.FILL
             paint.textAlign = Paint.Align.CENTER
             paint.color = Color.rgb(232, 239, 235)
-            paint.textSize = 34f
-            canvas.drawText(day.format(dayFormatter), centerX, graphBottom + 35f, paint)
+            paint.textSize = 44f
+            canvas.drawText(day.format(dayFormatter), centerX, graphBottom + 47f, paint)
             paint.color = Color.rgb(176, 185, 185)
-            paint.textSize = 24f
-            canvas.drawText(day.format(dateFormatter), centerX, graphBottom + 66f, paint)
+            paint.textSize = 32f
+            canvas.drawText(day.format(dateFormatter), centerX, graphBottom + 88f, paint)
         }
     }
 
