@@ -404,7 +404,7 @@ class WeekSummaryView(
         super.onDraw(canvas)
         val width = width.toFloat()
         val height = height.toFloat()
-        val labelHeight = 42f
+        val labelHeight = 54f
         val graphBottom = height - labelHeight
         val gap = 10f
         val columnWidth = (width - gap * 6f) / 7f
@@ -435,11 +435,11 @@ class WeekSummaryView(
             paint.style = Paint.Style.FILL
             paint.textAlign = Paint.Align.CENTER
             paint.color = Color.rgb(232, 239, 235)
-            paint.textSize = 16f
-            canvas.drawText(day.format(dayFormatter), centerX, graphBottom + 17f, paint)
+            paint.textSize = 24f
+            canvas.drawText(day.format(dayFormatter), centerX, graphBottom + 24f, paint)
             paint.color = Color.rgb(176, 185, 185)
-            paint.textSize = 14f
-            canvas.drawText(day.format(dateFormatter), centerX, graphBottom + 36f, paint)
+            paint.textSize = 17f
+            canvas.drawText(day.format(dateFormatter), centerX, graphBottom + 47f, paint)
         }
     }
 
