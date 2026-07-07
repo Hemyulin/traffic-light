@@ -450,7 +450,7 @@ class MoodDistributionView(
         bounds.set(left, top, left + diameter, top + diameter)
 
         paint.style = Paint.Style.STROKE
-        paint.strokeCap = Paint.Cap.ROUND
+        paint.strokeCap = Paint.Cap.BUTT
         paint.strokeWidth = strokeWidth
         paint.color = Color.rgb(39, 44, 44)
         val ringRadius = diameter / 2f - strokeWidth / 2f
@@ -503,25 +503,11 @@ class MoodDistributionView(
         val x = bounds.centerX() + kotlin.math.cos(angle).toFloat() * radius
         val y = bounds.centerY() + kotlin.math.sin(angle).toFloat() * radius
 
-        val text = count.toString()
         paint.style = Paint.Style.FILL
         paint.textAlign = Paint.Align.CENTER
-        paint.textSize = bounds.width() * 0.085f
-        val textWidth = paint.measureText(text)
-        val chipHeight = bounds.width() * 0.14f
-        val chipWidth = textWidth + bounds.width() * 0.095f
-        paint.color = Color.argb(220, 5, 5, 5)
-        canvas.drawRoundRect(
-            RectF(x - chipWidth / 2f, y - chipHeight / 2f, x + chipWidth / 2f, y + chipHeight / 2f),
-            chipHeight / 2f,
-            chipHeight / 2f,
-            paint,
-        )
+        paint.textSize = bounds.width() * 0.105f
         paint.color = if (color == MoodColor.YELLOW) Color.rgb(30, 28, 15) else Color.WHITE
-        if (color == MoodColor.YELLOW) {
-            paint.color = Color.rgb(250, 204, 21)
-        }
-        canvas.drawText(text, x, y + bounds.width() * 0.03f, paint)
+        canvas.drawText(count.toString(), x, y + bounds.width() * 0.035f, paint)
     }
 
     private data class SegmentLabel(
