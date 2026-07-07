@@ -373,7 +373,7 @@ class MainActivity : Activity() {
     private fun saveMoodWithFeedback(color: MoodColor, overlayHost: FrameLayout, isConflict: Boolean = false) {
         val entry = moodStore.save(color, isConflict = isConflict)
         MoodSyncPublisher.publish(this, entry)
-        vibrateLightly()
+        vibrateForColor(color)
         showConfirmation(overlayHost, color) {
             refreshDashboardPreservingScroll()
         }
@@ -390,15 +390,20 @@ class MainActivity : Activity() {
     private fun saveMoodThenExit(color: MoodColor, overlayHost: FrameLayout, isConflict: Boolean = false) {
         val entry = moodStore.save(color, isConflict = isConflict)
         MoodSyncPublisher.publish(this, entry)
-        vibrateLightly()
+        vibrateForColor(color)
         showConfirmation(overlayHost, color) {
             finishAndRemoveTask()
         }
     }
 
-    private fun vibrateLightly() {
+    private fun vibrateForColor(color: MoodColor) {
         val vibrator = getSystemService(Vibrator::class.java)
-        vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK))
+        val effect = when (color) {
+            MoodColor.GREEN -> VibrationEffect.EFFECT_TICK
+            MoodColor.YELLOW -> VibrationEffect.EFFECT_CLICK
+            MoodColor.RED -> VibrationEffect.EFFECT_HEAVY_CLICK
+        }
+        vibrator.vibrate(VibrationEffect.createPredefined(effect))
     }
 
     private fun showConfirmation(host: FrameLayout, color: MoodColor, afterShown: () -> Unit) {

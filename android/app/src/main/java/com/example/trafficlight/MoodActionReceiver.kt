@@ -13,8 +13,13 @@ class MoodActionReceiver : BroadcastReceiver() {
         val entry = MoodEntryStore(context).save(color)
         MoodSyncPublisher.publish(context, entry)
         CheckInAlarmScheduler.schedule(context)
+        val effect = when (color) {
+            MoodColor.GREEN -> VibrationEffect.EFFECT_TICK
+            MoodColor.YELLOW -> VibrationEffect.EFFECT_CLICK
+            MoodColor.RED -> VibrationEffect.EFFECT_HEAVY_CLICK
+        }
         context.getSystemService(Vibrator::class.java)
-            .vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK))
+            .vibrate(VibrationEffect.createPredefined(effect))
     }
 
     companion object {
