@@ -18,7 +18,13 @@ class MoodDataLayerListenerService : WearableListenerService() {
             val timestamp = dataMap.getLong(KEY_TIMESTAMP)
             val colorValue = dataMap.getString(KEY_COLOR).orEmpty()
             val color = MoodColor.entries.firstOrNull { it.storedValue == colorValue } ?: continue
-            store.save(MoodEntry(timestamp, color))
+            store.save(MoodEntry(
+                timestampMillis = timestamp,
+                color = color,
+                isConflict = dataMap.getBoolean(KEY_CONFLICT),
+                note = dataMap.getString(KEY_NOTE).orEmpty(),
+                tags = dataMap.getStringArrayList(KEY_TAGS).orEmpty(),
+            ))
         }
     }
 
@@ -26,5 +32,8 @@ class MoodDataLayerListenerService : WearableListenerService() {
         private const val PATH_PREFIX = "/mood_entries"
         private const val KEY_TIMESTAMP = "timestamp"
         private const val KEY_COLOR = "color"
+        private const val KEY_CONFLICT = "conflict"
+        private const val KEY_NOTE = "note"
+        private const val KEY_TAGS = "tags"
     }
 }

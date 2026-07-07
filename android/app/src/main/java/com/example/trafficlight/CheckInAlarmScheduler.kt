@@ -19,6 +19,10 @@ object CheckInAlarmScheduler {
 
         val settings = ReminderSettingsStore(context).load()
         if (settings.mode == ReminderMode.OFF) return
+        if (settings.pausedUntilMillis > System.currentTimeMillis()) {
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, settings.pausedUntilMillis, intent)
+            return
+        }
 
         val nextTrigger = nextTriggerMillis(settings) ?: return
         alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextTrigger, intent)

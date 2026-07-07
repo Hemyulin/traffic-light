@@ -39,10 +39,24 @@ class CheckInReminderReceiver : BroadcastReceiver() {
             .setContentTitle("What's up?")
             .setContentText("Green, yellow, or red?")
             .setContentIntent(openIntent)
+            .addAction(Notification.Action.Builder(null, "Green", moodActionIntent(context, MoodColor.GREEN)).build())
+            .addAction(Notification.Action.Builder(null, "Yellow", moodActionIntent(context, MoodColor.YELLOW)).build())
+            .addAction(Notification.Action.Builder(null, "Red", moodActionIntent(context, MoodColor.RED)).build())
             .setAutoCancel(true)
             .setCategory(Notification.CATEGORY_REMINDER)
             .setVisibility(Notification.VISIBILITY_PRIVATE)
             .build()
+    }
+
+    private fun moodActionIntent(context: Context, color: MoodColor): PendingIntent {
+        val intent = Intent(context, MoodActionReceiver::class.java)
+            .putExtra(MoodActionReceiver.EXTRA_COLOR, color.storedValue)
+        return PendingIntent.getBroadcast(
+            context,
+            color.ordinal + 10,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
     }
 
     private fun ensureChannel(notificationManager: NotificationManager) {

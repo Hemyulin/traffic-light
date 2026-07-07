@@ -21,6 +21,7 @@ class ReminderSettingsStore(context: Context) {
                 KEY_END_MINUTE_OF_DAY,
                 preferences.getInt(KEY_END_HOUR, 21) * 60,
             ),
+            pausedUntilMillis = preferences.getLong(KEY_PAUSED_UNTIL_MILLIS, 0L),
             fixedHours = preferences.getString(KEY_FIXED_HOURS, null)
                 ?.split(',')
                 ?.mapNotNull { it.toIntOrNull() }
@@ -36,6 +37,7 @@ class ReminderSettingsStore(context: Context) {
             .putInt(KEY_INTERVAL_MINUTES, settings.intervalMinutes)
             .putInt(KEY_START_MINUTE_OF_DAY, settings.startMinuteOfDay)
             .putInt(KEY_END_MINUTE_OF_DAY, settings.endMinuteOfDay)
+            .putLong(KEY_PAUSED_UNTIL_MILLIS, settings.pausedUntilMillis)
             .putString(KEY_FIXED_HOURS, settings.fixedHours.joinToString(","))
             .apply()
     }
@@ -47,6 +49,7 @@ class ReminderSettingsStore(context: Context) {
         private const val KEY_END_HOUR = "end_hour"
         private const val KEY_START_MINUTE_OF_DAY = "start_minute_of_day"
         private const val KEY_END_MINUTE_OF_DAY = "end_minute_of_day"
+        private const val KEY_PAUSED_UNTIL_MILLIS = "paused_until_millis"
         private const val KEY_FIXED_HOURS = "fixed_hours"
     }
 }
@@ -56,6 +59,7 @@ data class ReminderSettings(
     val intervalMinutes: Int,
     val startMinuteOfDay: Int,
     val endMinuteOfDay: Int,
+    val pausedUntilMillis: Long = 0L,
     val fixedHours: List<Int>,
 )
 
