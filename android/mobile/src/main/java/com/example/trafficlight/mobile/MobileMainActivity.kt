@@ -435,6 +435,7 @@ class MoodDistributionView(
 ) : View(context) {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val bounds = RectF()
+    private val arcBounds = RectF()
     private val counts = MoodColor.entries.associateWith { color ->
         entries.count { it.color == color }
     }
@@ -448,13 +449,14 @@ class MoodDistributionView(
         val left = (width - diameter) / 2f
         val top = (height - diameter) / 2f
         bounds.set(left, top, left + diameter, top + diameter)
+        arcBounds.set(bounds)
+        arcBounds.inset(strokeWidth / 2f, strokeWidth / 2f)
 
         paint.style = Paint.Style.STROKE
         paint.strokeCap = Paint.Cap.BUTT
         paint.strokeWidth = strokeWidth
         paint.color = Color.rgb(39, 44, 44)
-        val ringRadius = diameter / 2f - strokeWidth / 2f
-        canvas.drawCircle(bounds.centerX(), bounds.centerY(), ringRadius, paint)
+        canvas.drawArc(arcBounds, 0f, 360f, false, paint)
 
         val total = counts.values.sum()
         val labels = mutableListOf<SegmentLabel>()
@@ -465,11 +467,15 @@ class MoodDistributionView(
                 val sweep = 360f * count.toFloat() / total.toFloat()
                 if (sweep <= 0f) continue
                 paint.color = color.toUiColor()
-                canvas.drawArc(bounds, startAngle, sweep, false, paint)
+                canvas.drawArc(arcBounds, startAngle, sweep, false, paint)
                 labels += SegmentLabel(startAngle, sweep, count, color)
                 startAngle += sweep
             }
         }
+
+        paint.style = Paint.Style.FILL
+        paint.color = Color.BLACK
+        canvas.drawCircle(bounds.centerX(), bounds.centerY(), arcBounds.width() / 2f - strokeWidth / 2f + 1f, paint)
 
         labels.forEach { label ->
             drawSegmentCount(canvas, bounds, label.startAngle, label.sweep, label.count, label.color)
