@@ -441,12 +441,12 @@ class WeekSummaryView(
                     8f,
                     paint,
                 )
-                if (count > 0 && segmentHeight >= 34f) {
+                if (count > 0 && segmentHeight >= 54f) {
                     paint.style = Paint.Style.FILL
                     paint.textAlign = Paint.Align.CENTER
-                    paint.textSize = 24f
+                    paint.textSize = 42f
                     paint.color = if (color == MoodColor.YELLOW) Color.rgb(30, 28, 15) else Color.WHITE
-                    canvas.drawText(count.toString(), left + columnWidth / 2f, top + segmentHeight / 2f + 8f, paint)
+                    canvas.drawText(count.toString(), left + columnWidth / 2f, top + segmentHeight / 2f + 14f, paint)
                 }
                 bottom -= segmentHeight
             }
