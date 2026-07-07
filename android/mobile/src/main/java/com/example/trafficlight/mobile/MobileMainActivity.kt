@@ -57,16 +57,12 @@ class MobileMainActivity : Activity() {
             addView(LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(dp(20), dp(44), dp(20), dp(28))
-                addView(header(getString(R.string.app_name)))
-                addView(subtitle(resources.getQuantityString(R.plurals.synced_check_ins, entries.size, entries.size)))
                 addView(MoodDistributionView(context, entries), LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     dp(220),
                 ).apply {
-                    topMargin = dp(24)
                     bottomMargin = dp(14)
                 })
-                addView(distributionStats(entries))
                 addView(sectionTitle(getString(R.string.today)))
                 addView(MoodDayGraphView(context, entries), LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
@@ -198,49 +194,6 @@ class MobileMainActivity : Activity() {
             addView(actionButton("Löschen") {
                 confirmClear()
             })
-        }
-    }
-
-    private fun distributionStats(entries: List<MoodEntry>): View {
-        return LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            addView(statPill(getString(R.string.green), entries.count { it.color == MoodColor.GREEN }, MoodColor.GREEN))
-            addView(statPill(getString(R.string.yellow), entries.count { it.color == MoodColor.YELLOW }, MoodColor.YELLOW))
-            addView(statPill(getString(R.string.red), entries.count { it.color == MoodColor.RED }, MoodColor.RED))
-        }
-    }
-
-    private fun statPill(label: String, count: Int, color: MoodColor): View {
-        return LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setPadding(dp(8), dp(10), dp(8), dp(10))
-            setBackgroundColor(Color.rgb(22, 25, 25))
-            addView(View(context).apply {
-                setBackgroundColor(color.toUiColor())
-            }, LinearLayout.LayoutParams(dp(18), dp(5)).apply {
-                bottomMargin = dp(8)
-            })
-            addView(TextView(context).apply {
-                text = count.toString()
-                setTextColor(Color.WHITE)
-                textSize = 20f
-                gravity = Gravity.CENTER
-                includeFontPadding = false
-            })
-            addView(TextView(context).apply {
-                text = label
-                setTextColor(SOFT_TEXT)
-                textSize = 12f
-                gravity = Gravity.CENTER
-                includeFontPadding = false
-            })
-        }.also { view ->
-            view.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
-                marginStart = dp(4)
-                marginEnd = dp(4)
-            }
         }
     }
 
@@ -505,10 +458,12 @@ class MoodDistributionView(
         if (total > 0) {
             var startAngle = -90f
             for (color in listOf(MoodColor.GREEN, MoodColor.YELLOW, MoodColor.RED)) {
-                val sweep = 360f * counts[color].orZero().toFloat() / total.toFloat()
+                val count = counts[color].orZero()
+                val sweep = 360f * count.toFloat() / total.toFloat()
                 if (sweep <= 0f) continue
                 paint.color = color.toUiColor()
                 canvas.drawArc(bounds, startAngle, sweep, false, paint)
+                drawSegmentCount(canvas, bounds, startAngle, sweep, count, color)
                 startAngle += sweep
             }
         }
@@ -525,6 +480,28 @@ class MoodDistributionView(
     }
 
     private fun Int?.orZero(): Int = this ?: 0
+
+    private fun drawSegmentCount(
+        canvas: Canvas,
+        bounds: RectF,
+        startAngle: Float,
+        sweep: Float,
+        count: Int,
+        color: MoodColor,
+    ) {
+        if (count <= 0 || sweep < 22f) return
+
+        val angle = Math.toRadians((startAngle + sweep / 2f).toDouble())
+        val radius = bounds.width() * 0.41f
+        val x = bounds.centerX() + kotlin.math.cos(angle).toFloat() * radius
+        val y = bounds.centerY() + kotlin.math.sin(angle).toFloat() * radius
+
+        paint.style = Paint.Style.FILL
+        paint.textAlign = Paint.Align.CENTER
+        paint.textSize = bounds.width() * 0.11f
+        paint.color = if (color == MoodColor.YELLOW) Color.rgb(30, 28, 15) else Color.WHITE
+        canvas.drawText(count.toString(), x, y + bounds.width() * 0.04f, paint)
+    }
 }
 
 class MoodDayGraphView(
